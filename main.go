@@ -2,7 +2,12 @@ package main
 
 import (
 	"fmt"
+	"sync/atomic"
 )
+
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
 
 func main() {
 	err := ServerMux()
