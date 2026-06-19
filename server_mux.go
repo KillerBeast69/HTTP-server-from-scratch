@@ -1,13 +1,16 @@
 package main
 
 import (
+	"chirpy/internal/database"
 	"fmt"
 	"net/http"
 )
 
-func ServerMux() error {
+func ServerMux(db *database.Queries) error {
 	mux := http.NewServeMux()
-	apiCfg := apiConfig{}
+	apiCfg := apiConfig{
+		DB: db,
+	}
 
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
