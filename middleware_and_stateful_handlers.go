@@ -54,10 +54,12 @@ func (cfg *apiConfig) handlerValidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type success_response struct {
-		Valid bool `json:"valid"`
+	censored_body := censor(params.Body)
+
+	type response struct {
+		CleanedBody string `json:"cleaned_body"`
 	}
 
-	respond_with_json(w, 200, success_response{Valid: true})
+	respond_with_json(w, 200, response{CleanedBody: censored_body})
 
 }
