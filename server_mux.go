@@ -29,6 +29,7 @@ func ServerMux(db *database.Queries, platform string) error {
 	//mux.HandleFunc("POST /api/validate_chirp", apiCfg.handlerValidate)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirp)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerGetAllChirps)
 
 	server := &http.Server{
 		Addr:    ":8080",

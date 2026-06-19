@@ -168,3 +168,35 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	})
 
 }
+
+func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
+
+	allChirps, err := cfg.DB.GetAllChirps(r.Context())
+	if err != nil {
+		respond_with_error(w, 500, "failed to get all chirps")
+		return
+	}
+
+	type Chirp struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserId    uuid.UUID `json:"user_id"`
+	}
+
+	chirps := []Chirp{}
+
+	for _, aChirp := range allChirps {
+		chirps = append(chirps, Chirp{
+			ID:        aChirp.ID,
+			CreatedAt: aChirp.CreatedAt,
+			UpdatedAt: aChirp.UpdatedAt,
+			Body:      aChirp.Body,
+			UserId:    aChirp.UserID,
+		})
+	}
+
+	respond_with_json(w, 200, chirps)
+
+}
