@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -28,6 +31,19 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+
+	if cfg.Platform != "dev" {
+		w.WriteHeader(403)
+		w.Write([]byte("Forbidden"))
+		return
+	}
+
+	err := cfg.DB.DeleteAllUsers(r.Context())
+	if err != nil {
+		respond_with_error(w, 500, "Error deleting users")
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	cfg.fileserverHits.Store(0)
@@ -62,4 +78,40 @@ func (cfg *apiConfig) handlerValidate(w http.ResponseWriter, r *http.Request) {
 
 	respond_with_json(w, 200, response{CleanedBody: censored_body})
 
+}
+
+func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
+
+	type request struct {
+		Email string `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "Something went wrong")
+		return
+	}
+
+	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		respond_with_error(w, 500, "Error creating user")
+		return
+	}
+
+	type response struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
+
+	respond_with_json(w, 201, response{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	})
 }

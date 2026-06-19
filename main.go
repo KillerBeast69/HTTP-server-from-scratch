@@ -15,12 +15,14 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	DB             *database.Queries
+	Platform       string
 }
 
 func main() {
 
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -29,7 +31,7 @@ func main() {
 
 	dbQueries := database.New(db)
 
-	err = ServerMux(dbQueries)
+	err = ServerMux(dbQueries, platform)
 	if err != nil {
 		fmt.Printf("Server error: %v\n", err)
 	}
