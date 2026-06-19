@@ -200,3 +200,37 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 	respond_with_json(w, 200, chirps)
 
 }
+
+func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
+
+	chirpIDString := r.PathValue("chirpID")
+
+	chirpID, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		respond_with_error(w, 400, "invalid chirp ID")
+		return
+	}
+
+	chirp_resp, err := cfg.DB.GetChirp(r.Context(), chirpID)
+	if err != nil {
+		respond_with_error(w, 404, "chirp not found")
+		return
+	}
+
+	type Chirp struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserId    uuid.UUID `json:"user_id"`
+	}
+
+	respond_with_json(w, 200, Chirp{
+		ID:        chirp_resp.ID,
+		CreatedAt: chirp_resp.CreatedAt,
+		UpdatedAt: chirp_resp.UpdatedAt,
+		Body:      chirp_resp.Body,
+		UserId:    chirp_resp.UserID,
+	})
+
+}
