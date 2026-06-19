@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/database"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -114,4 +115,56 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
 	})
+}
+
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+
+	type payload struct {
+		Body    string    `json:"body"`
+		User_Id uuid.UUID `json:"user_id"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := payload{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "Error decoding jason response")
+		return
+	}
+
+	if len(params.Body) > 140 {
+		respond_with_error(w, 400, "Chirp is too long")
+		return
+	}
+
+	censored_body := censor(params.Body)
+
+	//respond_with_json(w, 200, response{CleanedBody: censored_body})
+
+	chirp_resp, err := cfg.DB.CreateChirp(r.Context(), database.CreateChirpParams{
+		Body:   censored_body,
+		UserID: params.User_Id,
+	})
+	if err != nil {
+		respond_with_error(w, 500, "failed to create chirp")
+		return
+	}
+
+	type response struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserID    uuid.UUID `json:"user_id"`
+	}
+
+	respond_with_json(w, 201, response{
+		ID:        chirp_resp.ID,
+		CreatedAt: chirp_resp.CreatedAt,
+		UpdatedAt: chirp_resp.UpdatedAt,
+		Body:      chirp_resp.Body,
+		UserID:    chirp_resp.UserID,
+	})
+
 }
