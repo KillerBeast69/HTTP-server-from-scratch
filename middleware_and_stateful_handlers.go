@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 )
@@ -31,4 +32,32 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	cfg.fileserverHits.Store(0)
 	w.Write([]byte("Hits counter reset to 0"))
+}
+
+func (cfg *apiConfig) handlerValidate(w http.ResponseWriter, r *http.Request) {
+
+	type request struct {
+		Body string `json:"body"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "Something went wrong")
+		return
+	}
+
+	if len(params.Body) > 140 {
+		respond_with_error(w, 400, "Chirp is too long")
+		return
+	}
+
+	type success_response struct {
+		Valid bool `json:"valid"`
+	}
+
+	respond_with_json(w, 200, success_response{Valid: true})
+
 }
