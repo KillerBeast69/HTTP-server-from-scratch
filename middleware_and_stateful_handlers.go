@@ -130,15 +130,27 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 
-	type payload struct {
-		Body    string    `json:"body"`
-		User_Id uuid.UUID `json:"user_id"`
+	tokenString, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respond_with_error(w, 401, "Missing authentication token")
+		return
 	}
 
-	decoder := json.NewDecoder(r.Body)
-	params := payload{}
+	userID, err := auth.ValidateJWT(tokenString, cfg.secret)
+	if err != nil {
+		respond_with_error(w, 401, "invalid authentication token")
+		return
+	}
 
-	err := decoder.Decode(&params)
+	type request struct {
+		Body string `json:"body"`
+	}
+
+	// what do I do here
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err = decoder.Decode(&params)
 	if err != nil {
 		respond_with_error(w, 500, "Error decoding jason response")
 		return
@@ -155,7 +167,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 	chirp_resp, err := cfg.DB.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body:   censored_body,
-		UserID: params.User_Id,
+		UserID: userID,
 	})
 	if err != nil {
 		respond_with_error(w, 500, "failed to create chirp")
@@ -251,7 +263,10 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type request struct {
 		Password string `json:"password"`
 		Email    string `json:"email"`
+		Expires  int    `json:"expires_in_seconds"`
 	}
+
+	// how do I make expires_in_seconds optional
 
 	decoder := json.NewDecoder(r.Body)
 	params := request{}
@@ -274,11 +289,25 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if params.Expires == 0 || params.Expires > 3600 {
+		params.Expires = 3600
+	}
+
+	token, err := auth.MakeJWT(
+		user.ID,
+		cfg.secret,
+		time.Duration(params.Expires)*time.Second,
+	)
+	if err != nil {
+		respond_with_error(w, 500, "could not create JWT")
+	}
+
 	type user_resource struct {
 		ID        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
 		Email     string    `json:"email"`
+		Token     string    `json:"token"`
 	}
 
 	respond_with_json(w, 200, user_resource{
@@ -286,6 +315,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     token,
 	})
 
 }

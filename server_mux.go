@@ -6,12 +6,13 @@ import (
 	"net/http"
 )
 
-func ServerMux(db *database.Queries, platform string) error {
+func ServerMux(db *database.Queries, platform string, jwt_secret string) error {
 	mux := http.NewServeMux()
 
 	apiCfg := apiConfig{
 		DB:       db,
 		Platform: platform,
+		secret:   jwt_secret,
 	}
 
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, r *http.Request) {
