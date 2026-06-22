@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/auth"
 	"chirpy/internal/database"
 	"encoding/json"
 	"fmt"
@@ -84,7 +85,8 @@ func (cfg *apiConfig) handlerValidate(w http.ResponseWriter, r *http.Request) {
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	type request struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -96,7 +98,16 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user, err := cfg.DB.CreateUser(r.Context(), params.Email)
+	hashed_password, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respond_with_error(w, 500, "failed to hash password")
+		return
+	}
+
+	user, err := cfg.DB.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashed_password,
+	})
 	if err != nil {
 		respond_with_error(w, 500, "Error creating user")
 		return
@@ -231,6 +242,50 @@ func (cfg *apiConfig) handlerGetChirp(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: chirp_resp.UpdatedAt,
 		Body:      chirp_resp.Body,
 		UserId:    chirp_resp.UserID,
+	})
+
+}
+
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
+
+	type request struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "failed to decode json")
+		return
+	}
+
+	user, err := cfg.DB.GetUser(r.Context(), params.Email)
+	if err != nil {
+		respond_with_error(w, 401, "incorrect email or password")
+		return
+	}
+
+	password_is_valid, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+	if err != nil || !password_is_valid {
+		respond_with_error(w, 401, "incorrect email or password")
+		return
+	}
+
+	type user_resource struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
+
+	respond_with_json(w, 200, user_resource{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
 	})
 
 }
