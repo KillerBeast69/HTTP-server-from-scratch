@@ -263,10 +263,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type request struct {
 		Password string `json:"password"`
 		Email    string `json:"email"`
-		Expires  int    `json:"expires_in_seconds"`
+		//Expires  int    `json:"expires_in_seconds"`
 	}
-
-	// how do I make expires_in_seconds optional
 
 	decoder := json.NewDecoder(r.Body)
 	params := request{}
@@ -289,33 +287,90 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if params.Expires == 0 || params.Expires > 3600 {
+	/*if params.Expires == 0 || params.Expires > 3600 {
 		params.Expires = 3600
-	}
+	}*/
 
-	token, err := auth.MakeJWT(
+	accessToken, err := auth.MakeJWT(
 		user.ID,
 		cfg.secret,
-		time.Duration(params.Expires)*time.Second,
+		time.Hour,
 	)
 	if err != nil {
 		respond_with_error(w, 500, "could not create JWT")
+		return
+	}
+
+	refreshToken := auth.MakeRefreshToken()
+	_, err = cfg.DB.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		ExpiresAt: time.Now().UTC().Add(60 * 24 * time.Hour),
+		UserID:    user.ID,
+	})
+	if err != nil {
+		respond_with_error(w, 500, "could not save refresh token")
+		return
 	}
 
 	type user_resource struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-		Token     string    `json:"token"`
+		ID           uuid.UUID `json:"id"`
+		CreatedAt    time.Time `json:"created_at"`
+		UpdatedAt    time.Time `json:"updated_at"`
+		Email        string    `json:"email"`
+		Token        string    `json:"token"`
+		RefreshToken string    `json:"refresh_token"`
 	}
 
 	respond_with_json(w, 200, user_resource{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     token,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	})
 
+	// how do I store the expiration time in the data base?
+
+}
+
+func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respond_with_error(w, 401, "missing token")
+		return
+	}
+
+	user, err := cfg.DB.GetUserFromRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		respond_with_error(w, 401, "invalid or expired refresh token")
+		return
+	}
+
+	newAccessToken, err := auth.MakeJWT(user.ID, cfg.secret, time.Hour)
+	if err != nil {
+		respond_with_error(w, 500, "could not create new JWT")
+		return
+	}
+
+	respond_with_json(w, 200, map[string]string{
+		"token": newAccessToken,
+	})
+
+}
+
+func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
+	refreshToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respond_with_error(w, 401, "missing token")
+		return
+	}
+
+	err = cfg.DB.RevokeRefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		respond_with_error(w, 500, "could not revoke refresh token")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
