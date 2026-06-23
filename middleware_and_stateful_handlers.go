@@ -374,3 +374,62 @@ func (cfg *apiConfig) handlerRevoke(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+	type request struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respond_with_error(w, 401, "missing token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(accessToken, cfg.secret)
+	if err != nil {
+		respond_with_error(w, 401, "invalid or expired token")
+		return
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err = decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "failed to decode json")
+		return
+	}
+
+	hashed_password, err := auth.HashPassword(params.Password)
+	if err != nil {
+		respond_with_error(w, 500, "failed to hash password")
+		return
+	}
+
+	user, err := cfg.DB.UpdateUser(r.Context(), database.UpdateUserParams{
+		Email:          params.Email,
+		HashedPassword: hashed_password,
+		ID:             userID,
+	})
+	if err != nil {
+		respond_with_error(w, 500, "failed to update user in database")
+		return
+	}
+
+	type response struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
+
+	//user.HashedPassword = hashed_password
+	respond_with_json(w, 200, response{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	})
+}
