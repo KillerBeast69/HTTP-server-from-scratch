@@ -114,17 +114,19 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type response struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
+		ID          uuid.UUID `json:"id"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		Email       string    `json:"email"`
+		IsChirpyRed bool      `json:"is_chirpy_red"`
 	}
 
 	respond_with_json(w, 201, response{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed.Bool,
 	})
 }
 
@@ -319,6 +321,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Email        string    `json:"email"`
 		Token        string    `json:"token"`
 		RefreshToken string    `json:"refresh_token"`
+		IsChirpyRed  bool      `json:"is_chirpy_red"`
 	}
 
 	respond_with_json(w, 200, user_resource{
@@ -328,6 +331,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		Token:        accessToken,
 		RefreshToken: refreshToken,
+		IsChirpyRed:  user.IsChirpyRed.Bool,
 	})
 
 	// how do I store the expiration time in the data base?
@@ -419,18 +423,20 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type response struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
+		ID          uuid.UUID `json:"id"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
+		Email       string    `json:"email"`
+		IsChirpyRed bool      `json:"is_chirpy_red"`
 	}
 
 	//user.HashedPassword = hashed_password
 	respond_with_json(w, 200, response{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed.Bool,
 	})
 }
 
@@ -469,6 +475,38 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 	err = cfg.DB.DeleteChirp(r.Context(), chirpID)
 	if err != nil {
 		respond_with_error(w, 500, "failed to delete chirp")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *apiConfig) handlerChirpyRed(w http.ResponseWriter, r *http.Request) {
+
+	type request struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID uuid.UUID `json:"user_id"`
+		} `json:"data"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := request{}
+
+	err := decoder.Decode(&params)
+	if err != nil {
+		respond_with_error(w, 500, "failed to decode json")
+		return
+	}
+
+	if params.Event != "user.upgraded" {
+		w.WriteHeader(204)
+		return
+	}
+
+	_, err = cfg.DB.Chirpyred(r.Context(), params.Data.UserID)
+	if err != nil {
+		respond_with_error(w, 404, "user not found")
 		return
 	}
 

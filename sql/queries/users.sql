@@ -25,3 +25,10 @@ set email = $1,
     updated_at = now()
 where id = $3
 returning *;
+
+-- name: Chirpyred :one
+update users
+set is_chirpy_red = true,
+    updated_at = now()
+where id = $1
+returning *;
