@@ -483,6 +483,12 @@ func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig) handlerChirpyRed(w http.ResponseWriter, r *http.Request) {
 
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil || apiKey != cfg.PolkaKey {
+		respond_with_error(w, 401, "unauthorized access")
+		return
+	}
+
 	type request struct {
 		Event string `json:"event"`
 		Data  struct {
@@ -493,7 +499,7 @@ func (cfg *apiConfig) handlerChirpyRed(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	params := request{}
 
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respond_with_error(w, 500, "failed to decode json")
 		return
