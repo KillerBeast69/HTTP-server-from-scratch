@@ -196,7 +196,27 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
 
-	allChirps, err := cfg.DB.GetAllChirps(r.Context())
+	authorIDString := r.URL.Query().Get("author_id")
+	SortType := r.URL.Query().Get("sort")
+
+	var allChirps []database.Chirp
+	var err error
+
+	if authorIDString != "" {
+		authorID, err := uuid.Parse(authorIDString)
+		if err != nil {
+			respond_with_error(w, 400, "invalid author ID")
+			return
+		}
+
+		allChirps, err = cfg.DB.GetChirpsByAuthor(r.Context(), authorID)
+	} else {
+		if SortType == "desc" {
+			allChirps, err = cfg.DB.GetAllChirpsDesc(r.Context())
+		} else {
+			allChirps, err = cfg.DB.GetAllChirps(r.Context())
+		}
+	}
 	if err != nil {
 		respond_with_error(w, 500, "failed to get all chirps")
 		return
