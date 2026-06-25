@@ -175,7 +175,3 @@ chirpy/
 Contributions are welcome. Please fork the repository, create a feature branch, and open a pull request. New routes should be registered in `server_mux.go` with corresponding handler methods on `*apiConfig`. Any schema changes must be accompanied by a new numbered Goose migration file in `sql/schema/`, followed by a corresponding query in `sql/queries/` and a `sqlc generate` run.
 
 ---
-
-## License
-
-This project is licensed under the MIT License. See `LICENSE` for details.
