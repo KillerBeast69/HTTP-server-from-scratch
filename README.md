@@ -4,7 +4,6 @@
 
 ![Go](https://img.shields.io/badge/Go-1.22-00ADD8?style=flat&logo=go)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-latest-4169E1?style=flat&logo=postgresql)
-![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-active-brightgreen)
 
 ---
